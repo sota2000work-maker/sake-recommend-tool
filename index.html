@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>日本酒おすすめ提示ツール</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="日本酒おすすめ">
+<meta name="theme-color" content="#1e4037">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+  /* 変数名はウイスキー版のものを流用している（将来の統合時に差分を小さくするため）。色は深緑（杉玉・松）系 */
+  :root {
+    --whisky: #2f5d50;
+    --whisky-dark: #1e4037;
+    --amber: #7fa898;
+    --amber-soft: #dfece7;
+    --cream: #f6f8f6;
+    --paper: #ffffff;
+    --ink: #1f2933;
+    --ink-soft: #5f6b78;
+    --border: #d8e2dd;
+    /* 3ツール共通の画面部品（検索・結果カード・一覧）はこの別名だけを使う */
+    --accent: var(--whisky);
+    --accent-dark: var(--whisky-dark);
+    --accent-soft: var(--amber-soft);
+    --accent-line: var(--amber);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif;
+    max-width: 900px; margin: 0 auto; padding: 14px 12px 32px;
+    background: var(--cream); color: var(--ink); line-height: 1.5;
+  }
+  h1, h2, h3 { font-family: "Hiragino Mincho ProN", Georgia, serif; font-weight: 600; letter-spacing: .02em; }
+  h1 { font-size: 21px; margin: 4px 0 14px; color: var(--whisky-dark); text-align: center; }
+  fieldset { margin-bottom: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--paper); }
+  legend { font-weight: 600; padding: 0 8px; color: var(--whisky); font-size: 14px; }
+  label { display: inline-block; margin: 6px 10px 6px 0; padding: 4px 2px; }
+  label input[type="checkbox"] { width: 18px; height: 18px; vertical-align: middle; margin-right: 4px; accent-color: var(--whisky); }
+  input[type="text"], input[type="password"], input[type="number"], select, textarea {
+    font-size: 16px; padding: 9px 10px; width: 100%; margin: 4px 0 8px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--paper); color: var(--ink);
+  }
+  input:focus { outline: 2px solid var(--amber-soft); border-color: var(--amber); }
+  button { font-size: 16px; padding: 12px 20px; margin-top: 4px; border-radius: 10px; cursor: pointer; transition: transform .05s ease, opacity .15s ease; }
+  button:active { transform: scale(0.98); }
+  button.primary { width: 100%; background: var(--whisky); color: #fff; border: none; box-shadow: 0 2px 6px rgba(47,93,80,0.25); }
+  button.secondary { background: var(--paper); border: 1px solid var(--whisky); color: var(--whisky); }
+  .tabBar { display: flex; gap: 6px; margin-bottom: 14px; position: sticky; top: 0; background: var(--cream); padding: 10px 0 6px; z-index: 5; }
+  .tabBtn { flex: 1; padding: 10px 4px; font-size: 13px; border: 1px solid var(--border); background: var(--paper); color: var(--ink-soft); border-radius: 999px; font-weight: 600; transition: all .15s ease; }
+  .tabBtn.active { background: var(--whisky); color: #fff; border-color: var(--whisky); box-shadow: 0 2px 6px rgba(47,93,80,0.25); }
+  .tabPanel { display: none; }
+  .tabPanel.active { display: block; animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+  .card {
+    border: 1px solid var(--border); border-left: 4px solid var(--amber);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; background: var(--paper);
+    box-shadow: 0 1px 3px rgba(43,36,32,0.06), 0 1px 2px rgba(43,36,32,0.04);
+  }
+  .card h3 { margin: 0 0 6px 0; font-size: 16px; display: flex; align-items: center; gap: 6px; }
+  .score {
+    font-weight: 700; color: var(--whisky-dark); font-size: 12px; background: var(--amber-soft);
+    padding: 2px 9px; border-radius: 999px; white-space: nowrap; margin-left: auto;
+  }
+  .meta { color: var(--ink-soft); font-size: 13px; }
+  .thumb { float: right; width: 72px; height: 96px; object-fit: contain; margin: 0 0 6px 10px; background: #fff; border-radius: 8px; }
+  .tag {
+    display: inline-block; background: var(--cream); border: 1px solid var(--border); color: var(--ink);
+    border-radius: 999px; padding: 3px 10px; margin: 2px 4px 2px 0; font-size: 12px; cursor: pointer;
+  }
+  .tag.glossary { border-color: var(--amber); }
+  .highlight {
+    margin: 8px 0; font-size: 14px; color: var(--whisky-dark); background: var(--amber-soft);
+    padding: 8px 10px; border-radius: 8px; border-left: 3px solid var(--amber);
+  }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--ink-soft); letter-spacing: .02em; }
+  .caution { color: #8a3b1c; font-size: 12px; background: #fbeee5; padding: 6px 8px; border-radius: 6px; margin-top: 6px; }
+  .muted { color: var(--ink-soft); font-size: 13px; }
+  .syncBar { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--ink-soft); margin-bottom: 6px; }
+  .overlay { position: fixed; inset: 0; background: rgba(43,36,32,0.45); display: flex; align-items: flex-end; z-index: 20; backdrop-filter: blur(1px); }
+  .hidden { display: none; }
+  .overlay.hidden { display: none; }
+  .sheet { background: var(--paper); width: 100%; max-height: 85vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding: 18px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); }
+  .sheet .closeBtn { width: 100%; margin-top: 12px; }
+  #adminGate { margin-bottom: 12px; }
+  #adminBody { display: none; }
+  .msg { padding: 9px 11px; border-radius: 8px; margin: 8px 0; font-size: 14px; }
+  .msg.ok { background: #e6f4ea; color: #1e4620; }
+  .msg.err { background: #fdecea; color: #611a15; }
+  #authGate { position: fixed; inset: 0; background: linear-gradient(180deg, var(--whisky-dark), var(--whisky)); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  #authGate.hidden { display: none; }
+  .authBox { max-width: 360px; width: 100%; background: var(--paper); border-radius: 16px; padding: 24px 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.25); }
+  .authBox h2 { font-size: 19px; margin: 0 0 4px; color: var(--whisky-dark); text-align: center; }
+  .authBox .muted { text-align: center; margin-bottom: 14px; }
+  .adminListRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .adminListRow:last-child { border-bottom: none; }
+  .adminListRow .name { font-size: 14px; }
+  .adminListRow button { margin-top: 0; padding: 6px 12px; font-size: 13px; width: auto; }
+  .adminListRow .btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .admField { display: block; margin: 6px 0; }
+  .admDeleteConfirm { border: 2px solid #b3261e; border-radius: 8px; padding: 10px; margin-top: 8px; }
+  .admDeleteConfirm .danger { color: #b3261e; border-color: #b3261e; }
+
+  .learnToc { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+  .learnToc.hidden { display: none; }
+  .learnToc button { margin: 0; padding: 6px 12px; font-size: 13px; border-radius: 999px; }
+  .learnSection h2 { font-size: 17px; color: var(--whisky-dark); margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); scroll-margin-top: 64px; }
+  .learnItem { border: 1px solid var(--border); border-left: 4px solid var(--amber); border-radius: 12px; margin-bottom: 8px; background: var(--paper); }
+  .learnItem summary { padding: 11px 14px; font-weight: 600; cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .learnItem summary::-webkit-details-marker { display: none; }
+  .learnItem summary::after { content: '＋'; color: var(--amber); font-weight: 700; flex-shrink: 0; }
+  .learnItem[open] summary::after { content: '－'; }
+  .learnBody { padding: 0 14px 12px; font-size: 14px; }
+  .learnBody p { margin: 0 0 8px; }
+  .learnTableWrap { overflow-x: auto; margin: 0 0 8px; }
+  .learnTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .learnTable th, .learnTable td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .learnTable th { background: var(--cream); white-space: nowrap; }
+  .learnTable td:first-child { white-space: nowrap; font-weight: 600; }
+  .learnTalk { font-size: 14px; color: var(--whisky-dark); background: var(--amber-soft); padding: 8px 10px; border-radius: 8px; border-left: 3px solid var(--amber); }
+  .learnTalk b { font-size: 12px; }
+
+  /* ===== 3ツール共通：検索条件の丸ボタン・結果の帯・下の固定ボタン・商品カード・一覧の絞り込み（2026-11） ===== */
+  #criteriaForm label:has(> input[type="checkbox"]) {
+    position: relative; display: inline-flex; align-items: center; gap: 4px; margin: 4px 6px 4px 0; padding: 7px 12px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--paper); font-size: 14px; cursor: pointer; user-select: none; -webkit-user-select: none;
+  }
+  #criteriaForm label:has(> input[type="checkbox"]) > input[type="checkbox"] { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+  #criteriaForm label:has(> input[type="checkbox"]:checked) { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #criteriaForm label:has(> input[type="checkbox"]:checked) .tag.glossary { background: transparent; color: #fff; border-color: rgba(255,255,255,.6); }
+  #criteriaForm label:has(> input[type="checkbox"]:focus-visible) { outline: 2px solid var(--accent-line); outline-offset: 2px; }
+  .resultsBar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 16px 0 10px; padding-top: 12px; border-top: 1px dashed var(--border); scroll-margin-top: 64px; }
+  .resultsBar.hidden { display: none; }
+  .resultsCount { font-weight: 700; color: var(--accent-dark); font-size: 15px; }
+  .resultsCount small { display: block; font-weight: 400; font-size: 12px; color: var(--ink-soft); }
+  .sortLabel { display: inline-flex !important; align-items: center; gap: 6px; margin: 0 !important; padding: 0 !important; font-size: 13px; color: var(--ink-soft); }
+  .sortLabel select { width: auto; margin: 0; padding: 6px 8px; font-size: 14px; }
+  .dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; padding: 10px max(12px, env(safe-area-inset-left, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--cream) 65%, rgba(255,255,255,0)); }
+  .dock.hidden { display: none; }
+  #tab-recommend { padding-bottom: 72px; }
+  .dock button { max-width: 876px; display: block; margin: 0 auto; }
+  .pcard { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 6px 12px; border-left-width: 1px; border-left-color: var(--border); }
+  .pcard.noimg { grid-template-columns: minmax(0, 1fr); }
+  .pcard .thumb { float: none; width: 76px; height: 110px; margin: 0; }
+  .pcard > *:not(.thumb):not(:nth-child(2)) { grid-column: 1 / -1; }
+  .pcard.noimg > * { grid-column: 1 / -1; }
+  .pcard h3 { margin: 0; font-size: 16px; line-height: 1.35; display: block; }
+  .pcPrice { font-size: 22px; font-weight: 800; color: var(--accent-dark); font-variant-numeric: tabular-nums; line-height: 1.25; margin-top: 2px; }
+  .pcPrice small { font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-left: 4px; }
+  .pcard .meta { font-size: 12px; }
+  .match { display: inline-block; font-size: 11px; font-weight: 700; color: var(--accent-dark); background: var(--accent-soft); border-radius: 6px; padding: 1px 7px; margin: 3px 0 1px; }
+  .match.full { color: #1e5a2e; background: #e1f1e4; }
+  .pcTags { margin-top: 4px; }
+  .pcTags .tag { font-size: 11px; padding: 2px 8px; margin: 2px 3px 2px 0; }
+  .pcTags .tag.sv { background: #eef4f1; border-color: #d3e0da; color: #2a5446; }
+  .pcTags .tag.season { background: #fbf3df; border-color: #ead9a8; color: #6b5215; }
+  .pcard > .highlight { margin: 4px 0 0; font-size: 13.5px; }
+  .clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+  /* 下の余白に4行目がのぞかないよう、余白は透明な枠線で作る（背景は枠線の下にも塗られる） */
+  .highlight.clamp { padding-bottom: 0; border-bottom: 8px solid transparent; }
+  .clampHint { font-size: 11px; color: var(--ink-soft); text-align: right; cursor: pointer; margin-top: -2px; }
+  .pcard > .code { font-size: 10px; margin-top: 2px; }
+  .pcard > .caution { font-size: 11px; padding: 4px 8px; margin-top: 0; }
+  .listTools { display: grid; gap: 6px; margin: 0 0 10px; }
+  .quickChips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .quickChips button { margin: 0; padding: 6px 12px; font-size: 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--paper); color: var(--ink); }
+  .quickChips button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .listMeta { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--ink-soft); }
+
+  @media (max-width: 480px) {
+    body { padding: 10px 8px 28px; font-size: 15px; }
+    label { display: block; }
+  }
+</style>
+</head>
+<body>
+
+<div id="authGate">
+  <div class="authBox">
+    <h2>スタッフパスコード</h2>
+    <p class="muted">この先は店舗スタッフ専用です。パスコードを入力してください。</p>
+    <input type="password" id="authPasscode" placeholder="パスコード">
+    <button type="button" id="authButton" class="primary">開く</button>
+    <div id="authMsg"></div>
+  </div>
+</div>
+
+<div id="appRoot" style="display:none;">
+
+<h1>日本酒おすすめ提示ツール</h1>
+<div class="syncBar">
+  <span id="syncStatus">同期状況を確認中...</span>
+  <button type="button" id="syncButton" class="secondary" style="padding:4px 10px;font-size:12px;">今すぐ同期</button>
+  <button type="button" id="logoutButton" class="secondary" style="padding:4px 10px;font-size:12px;">ログアウト</button>
+</div>
+
+<div class="tabBar">
+  <button type="button" class="tabBtn active" data-tab="recommend">レコメンド</button>
+  <button type="button" class="tabBtn" data-tab="list">一覧</button>
+  <button type="button" class="tabBtn" data-tab="learn">学ぶ</button>
+  <button type="button" class="tabBtn" data-tab="admin">管理</button>
+</div>
+
+<section id="tab-recommend" class="tabPanel active">
+  <form id="criteriaForm">
+    <fieldset>
+      <legend>フリーワード検索（任意）</legend>
+      <input type="text" id="recommendFreeText" placeholder="商品名・蔵元・産地・酒米で検索">
+    </fieldset>
+
+    <fieldset>
+      <legend>価格帯</legend>
+      <div id="priceFields"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>容量</legend>
+      <div id="volumeFields"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>種類 <span class="muted">（ⓘ をタップすると説明が見られます）</span></legend>
+      <div id="categoryFields"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>味わい <span class="muted">（ⓘ をタップすると説明が見られます）</span></legend>
+      <div id="flavorFields"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>飲み方</legend>
+      <div id="servingStyleFields"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>季節</legend>
+      <div id="seasonFields"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>産地</legend>
+      <div id="localFields"></div>
+    </fieldset>
+
+    <button type="button" id="clearCriteriaButton" class="secondary" style="width:100%;margin-top:0;">条件をクリア</button>
+  </form>
+
+  <div id="resultsBar" class="resultsBar hidden">
+    <div id="resultsCount" class="resultsCount"></div>
+    <label class="sortLabel">並べ替え
+      <select id="resultsSort">
+        <option value="score">一致度順</option>
+        <option value="priceAsc">価格の安い順</option>
+        <option value="priceDesc">価格の高い順</option>
+      </select>
+    </label>
+  </div>
+  <div id="results"><p class="muted">条件をタップすると、ここに結果が出ます。</p></div>
+  <div id="resultsDock" class="dock hidden"><button type="button" id="resultsDockButton" class="primary"></button></div>
+</section>
+
+<section id="tab-list" class="tabPanel">
+  <input type="text" id="listSearch" placeholder="商品名・蔵元・産地・酒米で検索">
+  <div class="listTools">
+    <div id="listQuickChips" class="quickChips" role="group" aria-label="絞り込み"></div>
+    <div class="listMeta">
+      <span id="listCount"></span>
+      <label class="sortLabel">並べ替え
+        <select id="listSort">
+          <option value="score">登録順</option>
+          <option value="priceAsc">価格の安い順</option>
+          <option value="priceDesc">価格の高い順</option>
+        </select>
+      </label>
+    </div>
+  </div>
+  <div id="listResults"></div>
+</section>
+
+<section id="tab-learn" class="tabPanel">
+  <p class="muted">接客中に説明に困りやすい基本用語をまとめました。見出しをタップすると説明が開きます。</p>
+  <input type="text" id="learnSearch" placeholder="用語・説明文を検索">
+  <div id="learnToc" class="learnToc"></div>
+  <div id="learnContent"></div>
+</section>
+
+<section id="tab-admin" class="tabPanel">
+  <div id="adminGate">
+    <p class="muted">追加・価格改定・取り扱い終了の操作には、閲覧用とは別の管理パスコードが必要です。</p>
+    <input type="password" id="adminPasscode" placeholder="管理パスコード">
+    <button type="button" id="adminUnlockButton" class="secondary">管理画面を開く</button>
+  </div>
+
+  <div id="adminBody">
+    <div id="adminMsg"></div>
+
+    <fieldset id="admAddFieldset">
+      <legend>新商品を追加</legend>
+      <label class="admField">JANコード（バーコードの数字・空欄でも可）<input type="text" id="admCode" inputmode="numeric"></label>
+      <label class="admField">商品名<input type="text" id="admName"></label>
+      <label class="admField">容量（例：720ml）<input type="text" id="admSpec"></label>
+      <label class="admField">販売価格（円）<input type="number" id="admPrice" min="0" inputmode="numeric"></label>
+      <label class="admField">種類<select id="admCategory"></select></label>
+      <label class="admField">種類の詳細（任意）<input type="text" id="admCategoryDetail" placeholder="例：特別純米・無濾過生原酒"></label>
+      <label class="admField">蔵元（任意）<input type="text" id="admBrewery" placeholder="例：神沢川酒造場"></label>
+      <label class="admField">産地（都道府県・任意）<input type="text" id="admPrefecture" placeholder="例：静岡県"></label>
+      <label class="admField">酒米（任意）<input type="text" id="admRice" placeholder="例：山田錦"></label>
+      <label class="admField">精米歩合（％・任意）<input type="number" id="admPolish" min="1" max="100" step="1" inputmode="numeric"></label>
+      <label class="admField">日本酒度（任意・例：+3、-2）<input type="text" id="admSmv" inputmode="text"></label>
+      <label class="admField">度数（任意）<input type="number" id="admAbv" min="0" step="0.1" inputmode="decimal"></label>
+      <label class="admField">季節<select id="admSeason"></select></label>
+      <div><b>味わい（複数選択可）</b><div id="admFlavorFields"></div></div>
+      <div><b>飲み方（複数選択可）</b><div id="admServingFields"></div></div>
+      <label class="admField">商品説明（任意）<textarea id="admHighlight" rows="3"></textarea></label>
+      <button type="button" id="admAddButton" class="primary">この内容で追加</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>価格改定</legend>
+      <label class="admField">対象商品<select id="admPriceTarget"></select></label>
+      <label class="admField">新しい販売価格（円）<input type="number" id="admNewPrice" min="0" inputmode="numeric"></label>
+      <button type="button" id="admPriceButton" class="primary">価格を更新</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>取り扱い終了にする</legend>
+      <div id="admActiveList"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>取り扱いを再開する</legend>
+      <div id="admDiscontinuedList"></div>
+      <div id="admDeleteConfirm" class="admDeleteConfirm hidden">
+        <p><b id="admDeleteConfirmName"></b> を完全に削除します。<br>この操作は元に戻せません。よろしいですか？</p>
+        <button type="button" id="admDeleteConfirmButton" class="secondary danger">はい、完全に削除する</button>
+        <button type="button" id="admDeleteCancelButton" class="secondary">キャンセル</button>
+      </div>
+    </fieldset>
+  </div>
+</section>
+
+<div id="detailOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div id="detailContent"></div>
+    <button type="button" id="detailCloseButton" class="secondary closeBtn">閉じる</button>
+  </div>
+</div>
+
+<div id="glossaryOverlay" class="overlay hidden">
+  <div class="sheet">
+    <div id="glossaryContent"></div>
+    <button type="button" id="glossaryCloseButton" class="secondary closeBtn">閉じる</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+// 酒部門/日本酒/scoring.js
+// 選択肢の定義とマッチングロジック（純粋関数）。
+// build.js でこのファイルの中身がそのまま index.html に埋め込まれるため、
+// ブラウザ・Node.js のどちらでも動く形（ファイル末尾のエクスポート文のみ Node 依存）にしてある。
+
+const PRICE_BANDS = [
+  { id: 'under1000', label: '〜1,000円', min: 0, max: 1000 },
+  { id: '1000to1500', label: '1,000〜1,500円', min: 1000, max: 1500 },
+  { id: '1500to2000', label: '1,500〜2,000円', min: 1500, max: 2000 },
+  { id: '2000to3000', label: '2,000〜3,000円', min: 2000, max: 3000 },
+  { id: 'over3000', label: '3,000円〜', min: 3000, max: Infinity },
+];
+
+// 容量の区分。ml が min 以上・max 未満。500ml ちょうどは「小瓶・カップ」、600〜900ml は「四合瓶」に入る
+const VOLUME_BANDS = [
+  { id: 'large', label: '一升瓶（1800ml）', min: 1000, max: Infinity },
+  { id: 'medium', label: '四合瓶（720mlなど）', min: 501, max: 1000 },
+  { id: 'small', label: '小瓶・カップ（500ml以下）', min: 0, max: 501 },
+];
+
+// 種類（1商品に1つ）。特別純米は「純米」、特別本醸造は「本醸造・普通酒」に入れる。
+// 「その他」は清酒以外（どぶろく・リキュールなど）
+const CATEGORIES = ['純米大吟醸', '純米吟醸', '純米', '大吟醸・吟醸', '本醸造・普通酒', 'その他'];
+
+const FLAVOR_TAGS = ['辛口・キレ', '甘口・やわらか', '華やか・フルーティー', 'すっきり・軽快', 'コク・旨み', '熟成感', '酸味', 'にごり', '発泡'];
+
+const SERVING_STYLE_TAGS = ['冷やして', '常温', '燗'];
+
+// 季節（1商品に1つ）。年中売っているものは「通年」
+const SEASONS = ['新酒・しぼりたて', '夏酒', '秋酒・ひやおろし', '通年'];
+
+// 「静岡の地酒だけ」スイッチで見る県
+const LOCAL_PREFECTURE = '静岡県';
+
+function priceBandsForProduct(price) {
+  if (price === null || price === undefined) return [];
+  return PRICE_BANDS.filter((b) => price >= b.min && price < b.max).map((b) => b.id);
+}
+
+// 「720ml」「１８００ｍｌ」「1.8L」のような容量の文字列から ml の数値を取り出す。読めなければ null
+function volumeMl(spec) {
+  if (!spec) return null;
+  const s = String(spec).normalize('NFKC').toLowerCase();
+  const ml = /([\d.]+)\s*ml/.exec(s);
+  if (ml) return Math.round(Number(ml[1]));
+  const l = /([\d.]+)\s*l/.exec(s);
+  if (l) return Math.round(Number(l[1]) * 1000);
+  return null;
+}
+
+function volumeBandForProduct(product) {
+  const ml = volumeMl(product.spec);
+  if (ml === null || !Number.isFinite(ml)) return null;
+  const band = VOLUME_BANDS.find((b) => ml >= b.min && ml < b.max);
+  return band ? band.id : null;
+}
+
+function scoreProduct(product, criteria) {
+  let totalCriteria = 0;
+  let matchedCount = 0;
+  const breakdown = {};
+
+  if (criteria.priceBandIds && criteria.priceBandIds.length > 0) {
+    // 価格条件が指定されている場合は常にtotalCriteriaに数える。価格不明の商品は「不一致」として扱う
+    // （ウイスキー版で、価格不明を除外していたため不当に高スコアになっていた問題の修正をそのまま引き継いでいる）。
+    totalCriteria++;
+    if (product.price !== null && product.price !== undefined) {
+      const matched = priceBandsForProduct(product.price).some((id) => criteria.priceBandIds.includes(id));
+      if (matched) matchedCount++;
+      breakdown.price = matched;
+    } else {
+      breakdown.price = null; // 表示側で「価格不明」と「価格条件外」を区別できるようnullのまま
+    }
+  }
+
+  if (criteria.volumeBandIds && criteria.volumeBandIds.length > 0) {
+    totalCriteria++;
+    const band = volumeBandForProduct(product);
+    const matched = band !== null && criteria.volumeBandIds.includes(band);
+    if (matched) matchedCount++;
+    breakdown.volume = matched;
+  }
+
+  if (criteria.categories && criteria.categories.length > 0) {
+    totalCriteria++;
+    const matched = product.category != null && criteria.categories.includes(product.category);
+    if (matched) matchedCount++;
+    breakdown.category = matched;
+  }
+
+  if (criteria.flavors && criteria.flavors.length > 0) {
+    totalCriteria++;
+    const matched = (product.flavors || []).some((f) => criteria.flavors.includes(f));
+    if (matched) matchedCount++;
+    breakdown.flavors = matched;
+  }
+
+  if (criteria.servingStyles && criteria.servingStyles.length > 0) {
+    totalCriteria++;
+    const matched = (product.servingStyles || []).some((s) => criteria.servingStyles.includes(s));
+    if (matched) matchedCount++;
+    breakdown.servingStyles = matched;
+  }
+
+  if (criteria.seasons && criteria.seasons.length > 0) {
+    totalCriteria++;
+    const matched = product.season != null && criteria.seasons.includes(product.season);
+    if (matched) matchedCount++;
+    breakdown.season = matched;
+  }
+
+  if (criteria.localOnly) {
+    totalCriteria++;
+    const matched = product.prefecture === LOCAL_PREFECTURE;
+    if (matched) matchedCount++;
+    breakdown.local = matched;
+  }
+
+  const score = totalCriteria === 0 ? 0 : matchedCount / totalCriteria;
+  return { score, matchedCount, totalCriteria, breakdown };
+}
+
+// 商品名・蔵元・産地（県）・酒米・種類の詳細を対象にした部分一致検索（一覧タブ・レコメンドタブ共通）
+function matchesFreeText(product, text) {
+  if (!text) return true;
+  return [product.name, product.brewery, product.prefecture, product.rice, product.categoryDetail]
+    .filter(Boolean).some((v) => v.includes(text));
+}
+
+// 条件が1つも指定されていない場合、全商品がスコア0で同着になり実質無作為順になってしまうため、
+// UI層に頼らずロジック層でも空配列を返すようにする（呼び出し元がUIのガードを経由しない場合の安全策）。
+function hasAnyCriteria(criteria) {
+  return !!(
+    (criteria.freeText && criteria.freeText.trim())
+    || (criteria.priceBandIds && criteria.priceBandIds.length)
+    || (criteria.volumeBandIds && criteria.volumeBandIds.length)
+    || (criteria.categories && criteria.categories.length)
+    || (criteria.flavors && criteria.flavors.length)
+    || (criteria.servingStyles && criteria.servingStyles.length)
+    || (criteria.seasons && criteria.seasons.length)
+    || criteria.localOnly
+  );
+}
+
+function rankProducts(products, criteria, topN) {
+  if (!hasAnyCriteria(criteria)) return [];
+  const active = products.filter((p) => p.status !== 'discontinued' && matchesFreeText(p, criteria.freeText));
+  const scored = active.map((p) => ({ product: p, ...scoreProduct(p, criteria) }));
+  scored.sort((a, b) => b.score - a.score || b.matchedCount - a.matchedCount);
+  return scored.slice(0, topN);
+}
+
+// 結果の並べ替え（3ツール共通。entries は rankProducts の戻り値、または { product } の配列）。
+// mode: 'score'（そのまま＝一致度順）/ 'priceAsc'（安い順）/ 'priceDesc'（高い順）。
+// 価格不明の商品は常に最後。同じ価格なら一致度の高い順、それも同じなら元の順番を保つ。
+function sortEntries(entries, mode) {
+  if (mode !== 'priceAsc' && mode !== 'priceDesc') return entries.slice();
+  const dir = mode === 'priceAsc' ? 1 : -1;
+  const hasPrice = (e) => e.product.price !== null && e.product.price !== undefined;
+  return entries
+    .map((e, i) => ({ e, i }))
+    .sort((a, b) => {
+      const pa = hasPrice(a.e), pb = hasPrice(b.e);
+      if (pa !== pb) return pa ? -1 : 1;
+      if (pa && a.e.product.price !== b.e.product.price) return (a.e.product.price - b.e.product.price) * dir;
+      const sa = a.e.score || 0, sb = b.e.score || 0;
+      if (sa !== sb) return sb - sa;
+      return a.i - b.i;
+    })
+    .map((x) => x.e);
+}
+
+// レコメンド結果の並べ替え（3ツール共通）。価格順でも「条件に全部合う」商品を先に、
+// 「一部だけ合う」商品をその後ろに並べる。全件を並べ替えてから、画面側が先頭から表示する
+// （以前は一致度順の先頭20件だけを価格順に並べ替えていたため、本当の最安・最高値が出なかった。2026-11修正）。
+function orderHits(hits, mode) {
+  if (mode !== 'priceAsc' && mode !== 'priceDesc') return hits.slice();
+  const isFull = (e) => !(e.totalCriteria > 0) || e.score === 1;
+  return sortEntries(hits.filter(isFull), mode).concat(sortEntries(hits.filter((e) => !isFull(e)), mode));
+}
+
+
+</script>
+<script>
+const SEED_PRODUCTS = [
+  {
+    "code": "SAMPLE-001",
+    "name": "（サンプル）純米吟醸 山田錦",
+    "spec": "720ml",
+    "price": 1700,
+    "category": "純米吟醸",
+    "categoryDetail": "純米吟醸",
+    "brewery": "サンプル酒造",
+    "prefecture": "静岡県",
+    "rice": "山田錦",
+    "polish": 55,
+    "smv": 3,
+    "abv": 15,
+    "season": "通年",
+    "flavors": ["華やか・フルーティー", "すっきり・軽快"],
+    "servingStyles": ["冷やして"],
+    "highlight": "果物のような穏やかな香りと、きれいで軽やかな後味が楽しめる純米吟醸です。冷やすと香りが引き立ち、お刺身などの魚料理とよく合います。",
+    "highlightConfidence": "high",
+    "highlightSource": null,
+    "attributeConfidence": "high",
+    "attributeSource": null,
+    "status": "active"
+  },
+  {
+    "code": "SAMPLE-002",
+    "name": "（サンプル）山廃純米 辛口",
+    "spec": "1800ml",
+    "price": 2800,
+    "category": "純米",
+    "categoryDetail": "山廃純米",
+    "brewery": "見本酒造",
+    "prefecture": "石川県",
+    "rice": "五百万石",
+    "polish": 65,
+    "smv": 8,
+    "abv": 16,
+    "season": "通年",
+    "flavors": ["辛口・キレ", "コク・旨み"],
+    "servingStyles": ["常温", "燗"],
+    "highlight": "山廃仕込みらしいしっかりした旨みと酸があり、後味はすっと切れる辛口の純米酒です。ぬるめのお燗にすると旨みがふくらみます。",
+    "highlightConfidence": "high",
+    "highlightSource": null,
+    "attributeConfidence": "high",
+    "attributeSource": null,
+    "status": "active"
+  },
+  {
+    "code": "SAMPLE-003",
+    "name": "（サンプル）しぼりたて 活性にごり生",
+    "spec": "300ml",
+    "price": 680,
+    "category": "本醸造・普通酒",
+    "categoryDetail": "活性にごり・生酒",
+    "brewery": "サンプル酒造",
+    "prefecture": "静岡県",
+    "rice": null,
+    "polish": null,
+    "smv": -10,
+    "abv": 14,
+    "season": "新酒・しぼりたて",
+    "flavors": ["甘口・やわらか", "にごり", "発泡"],
+    "servingStyles": ["冷やして"],
+    "highlight": "しぼりたてのにごり酒で、米のやさしい甘みとしゅわっとした泡が楽しめます。開けるときは、よく冷やして少しずつ栓をゆるめてください。",
+    "highlightConfidence": "medium",
+    "highlightSource": null,
+    "attributeConfidence": "high",
+    "attributeSource": null,
+    "status": "active"
+  }
+]
+;
+
+// ここにGoogle Apps ScriptのWebアプリURLを設定すると、スタッフパスコードでの同期・
+// 管理タブでの追加・価格改定・取り扱い終了/再開・削除が有効になる。
+// 未設定の間は開発確認用として、パスコード入力後にSEED_PRODUCTS（非機密のプレースホルダー）
+// を表示する（実データではないので公開ホスティングしても問題ない）。
+// 設定後は build.js を再実行して index.html を作り直すこと。
+const APPS_SCRIPT_URL = '';
+
+const STORAGE_KEY = 'sakeToolCache_v1';
+const STAFF_PASSCODE_KEY = 'sakeToolStaffPasscode_v1';
+
+// タグ用語集（1タグにつき1つの固定定義。日本酒に詳しい人が読んでも納得できる説明を優先している）
+const FLAVOR_GLOSSARY = {
+  '辛口・キレ': '甘みが控えめで、後味がすっと切れるタイプ。日本酒度がプラスのものに多いですが、酸の強さや香りでも感じ方が変わるため、数字はあくまで目安です。食事と一緒に飲む方にすすめやすいです。',
+  '甘口・やわらか': '米の甘みが感じられ、口当たりがやわらかいタイプ。日本酒度がマイナスのものや、度数が低めのものに多く、日本酒に慣れていない方にもすすめやすいです。',
+  '華やか・フルーティー': 'りんご・メロン・バナナのような果物を思わせる香り（吟醸香）が楽しめるタイプ。吟醸・大吟醸など、よく磨いた米を低温でゆっくり発酵させたお酒に多いです。冷やすと香りが引き立ちます。',
+  'すっきり・軽快': '香りは穏やかで、軽くさらりとした飲み口のタイプ。クセが少なく飲み飽きしないので、毎日の晩酌や食事に合わせやすいです。',
+  'コク・旨み': '米の旨みとふくらみがしっかり感じられるタイプ。純米酒や、生酛・山廃で造ったお酒、原酒などに多く、常温や燗でも持ち味が出ます。',
+  '熟成感': '寝かせることで生まれる、落ち着いた香りとまろやかで深い味わいのタイプ。長く熟成させた古酒では、色が黄金色から琥珀色になり、ナッツやカラメルのような香りが出てきます。',
+  '酸味': '酸がしっかりしていて、味わいに締まりや爽やかさがあるタイプ。山廃・生酛・菩提酛など昔ながらの造りのお酒や、酸を生かして造ったお酒に多いです。後味が軽くなり、脂ののった料理とも合わせやすいです。',
+  'にごり': 'もろみを目の粗い布などでこして、米の成分（おり）を残した白く濁ったお酒。とろりとした口当たりと米の甘みが特徴です。おりが沈んでいるときは、瓶をゆっくり逆さにして混ぜてから注ぎます（発泡しているものは振らないでください）。',
+  '発泡': '炭酸ガスを含み、しゅわっとした泡が楽しめるお酒。瓶の中で発酵が続いているタイプは、開けるときに中身が吹き出すことがあるので、よく冷やして、振らずにゆっくり栓を開けます。',
+};
+
+// 種類の説明（精米歩合などの数字は、国税庁「清酒の製法品質表示基準」による）
+const CATEGORY_GLOSSARY = {
+  '純米大吟醸': '米・米麹・水だけで造り、米を半分以下まで磨いた（精米歩合50％以下）お酒。低温でゆっくり発酵させる「吟醸造り」で、華やかな香りと雑味の少ないきれいな味わいになります。贈り物にもよく選ばれます。',
+  '純米吟醸': '米・米麹・水だけで造り、精米歩合60％以下まで磨いた米を「吟醸造り」で仕込んだお酒。果物のような香りと、米の旨みの両方が楽しめます。',
+  '純米': '米・米麹・水だけで造ったお酒（純米酒・特別純米酒）。米の旨みやコクが感じられ、冷やしても燗でも楽しめるものが多いです。「特別純米」は、精米歩合60％以下、または特別な造り方をしたものです。',
+  '大吟醸・吟醸': '磨いた米を「吟醸造り」で仕込み、少量の醸造アルコールを加えたお酒。吟醸は精米歩合60％以下、大吟醸は50％以下です。醸造アルコールを加えることで香りが引き立ち、すっきりと軽い後味になります。',
+  '本醸造・普通酒': '本醸造は、精米歩合70％以下の米で造り、少量の醸造アルコールを加えたお酒で、すっきりして燗にも向きます。「特別本醸造」は精米歩合60％以下、または特別な造り方をしたもの。普通酒は、こうした特定名称の決まりに当てはまらない日本酒で、毎日の晩酌向けです。',
+  'その他': '法律上の「清酒」に当てはまらないお酒。もろみをこさずに造る「どぶろく」や、果汁などを加えたリキュールなどです。',
+};
+
+const SEASON_GLOSSARY = {
+  '新酒・しぼりたて': 'その年に収穫した米で造り、しぼってまもなく出荷するお酒。主に冬から春先に出回ります。できたてならではのフレッシュな香りと、はつらつとした味わいが特徴です。生酒のものは冷蔵で保管します。',
+  '夏酒': '暑い季節に冷やしておいしく飲めるように造られた、夏限定のお酒。度数を少し抑えた軽やかなものや、酸味のきいた爽やかなものが多いです（法律上の決まりはなく、蔵ごとの考えで造られています）。',
+  '秋酒・ひやおろし': '秋に限定で出るお酒。代表は、冬から春に造ったお酒を夏のあいだ蔵で寝かせて秋に出荷する「ひやおろし」「秋あがり」で、熟成で角が取れ、まろやかで旨みののった味わいになります。「ひやおろし」は本来、出荷前の2回目の火入れ（加熱殺菌）をせずに瓶詰めしたものを指します。ラベルにこうした表示がない秋限定のお酒も、ここに入れています。',
+};
+
+// 味わい以外（種類・季節）の用語説明をまとめたもの
+const OTHER_GLOSSARY = { ...CATEGORY_GLOSSARY, ...SEASON_GLOSSARY };
+
+let PRODUCTS = [];
+// 管理パスコードで認証できた場合にのみ入る、取扱終了品の配列（PRODUCTSには混ぜない）
+let ADMIN_DISCONTINUED = [];
+
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed.products || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveCache(products) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ products, syncedAt: Date.now() }));
+  } catch (e) {
+    // 保存できなくても動作は継続する
+  }
+}
+
+function getLastSyncedAt() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw).syncedAt || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function formatSyncedAt(ts) {
+  if (!ts) return '未同期';
+  const d = new Date(ts);
+  return '最終同期: ' + d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function updateSyncStatus() {
+  document.getElementById('syncStatus').textContent = formatSyncedAt(getLastSyncedAt());
+}
+
+// スタッフパスコードを添えてApps Scriptから最新データを取得する。
+// adminPasscodeを渡すと、それが管理パスコードと一致した場合のみ取扱終了品(ADMIN_DISCONTINUED)も取得する。
+// 戻り値: { ok, reason } reasonは 'network'（通信不可）/ 'invalid'（スタッフパスコード誤り）/
+//        'admin_invalid'（管理パスコード誤り）/ 'not_configured'
+async function syncFromServer(passcode, silent, adminPasscode) {
+  if (!APPS_SCRIPT_URL) {
+    return { ok: false, reason: 'not_configured' };
+  }
+  try {
+    const body = { action: 'sync', passcode };
+    if (adminPasscode) body.adminPasscode = adminPasscode;
+    const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify(body) });
+    const data = await res.json();
+    if (data.error === 'passcode_invalid') {
+      return { ok: false, reason: 'invalid' };
+    }
+    if (!data.products) throw new Error('invalid_response');
+    PRODUCTS = data.products;
+    saveCache(PRODUCTS);
+    updateSyncStatus();
+    renderListResults();
+    runSearch();
+    if (adminPasscode) {
+      if (!data.discontinuedProducts) {
+        return { ok: false, reason: 'admin_invalid' };
+      }
+      ADMIN_DISCONTINUED = data.discontinuedProducts;
+    }
+    populateAdminLists();
+    return { ok: true };
+  } catch (e) {
+    if (!silent) alert('同期に失敗しました。通信環境をご確認ください。');
+    return { ok: false, reason: 'network' };
+  }
+}
+
+document.getElementById('syncButton').addEventListener('click', async () => {
+  const passcode = localStorage.getItem(STAFF_PASSCODE_KEY) || '';
+  await syncFromServer(passcode, false);
+});
+
+document.getElementById('logoutButton').addEventListener('click', () => {
+  if (!confirm('ログアウトしますか？この端末に保存されているパスコードを消去します。')) return;
+  localStorage.removeItem(STAFF_PASSCODE_KEY);
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+});
+
+// ---------- 起動時認証ゲート ----------
+
+function showAuthError(text) {
+  document.getElementById('authMsg').innerHTML = `<div class="msg err">${text}</div>`;
+}
+
+function enterApp() {
+  document.getElementById('authGate').classList.add('hidden');
+  document.getElementById('appRoot').style.display = 'block';
+  startApp();
+}
+
+async function tryStaffLogin(passcode, silent) {
+  if (!APPS_SCRIPT_URL) {
+    // Apps Script未設定時の開発確認用フォールバック（非機密のプレースホルダーデータのみ使用）
+    PRODUCTS = loadCache() || SEED_PRODUCTS;
+    localStorage.setItem(STAFF_PASSCODE_KEY, passcode);
+    return true;
+  }
+  const result = await syncFromServer(passcode, true);
+  if (result.ok) {
+    localStorage.setItem(STAFF_PASSCODE_KEY, passcode);
+    return true;
+  }
+  if (result.reason === 'network') {
+    // オフライン時は、直近まで認証済みだった端末ならキャッシュで継続動作させる
+    const cached = loadCache();
+    if (cached && localStorage.getItem(STAFF_PASSCODE_KEY)) {
+      PRODUCTS = cached;
+      return true;
+    }
+    if (!silent) showAuthError('通信環境をご確認ください（初回はオンラインでの認証が必要です）。');
+    return false;
+  }
+  if (!silent) showAuthError('パスコードが正しくありません。');
+  localStorage.removeItem(STAFF_PASSCODE_KEY);
+  return false;
+}
+
+document.getElementById('authButton').addEventListener('click', async () => {
+  const passcode = document.getElementById('authPasscode').value;
+  if (!passcode) { showAuthError('パスコードを入力してください'); return; }
+  const ok = await tryStaffLogin(passcode, false);
+  if (ok) enterApp();
+});
+
+async function initAuth() {
+  const storedPasscode = localStorage.getItem(STAFF_PASSCODE_KEY);
+  if (storedPasscode) {
+    const ok = await tryStaffLogin(storedPasscode, true);
+    if (ok) { enterApp(); return; }
+  }
+  // ゲート画面のまま入力待ち
+}
+
+// ---------- 用語集ポップアップ ----------
+
+function openGlossary(term) {
+  const def = FLAVOR_GLOSSARY[term] || OTHER_GLOSSARY[term];
+  if (!def) return;
+  document.getElementById('glossaryContent').innerHTML = `<h2>${escapeHtml(term)}</h2><p>${def}</p>`;
+  document.getElementById('glossaryOverlay').classList.remove('hidden');
+}
+
+document.getElementById('glossaryCloseButton').addEventListener('click', () => {
+  document.getElementById('glossaryOverlay').classList.add('hidden');
+});
+
+function glossaryTagHtml(term, extraClass) {
+  const hasGlossary = FLAVOR_GLOSSARY[term] || OTHER_GLOSSARY[term];
+  const cls = 'tag' + (hasGlossary ? ' glossary' : '') + (extraClass ? ' ' + extraClass : '');
+  const safeTerm = escapeHtml(term);
+  return `<span class="${cls}" data-term="${safeTerm}">${safeTerm}${hasGlossary ? ' ⓘ' : ''}</span>`;
+}
+
+// タグクリックで用語集を開く（イベント委譲。結果カード・フォーム双方に対応）
+document.body.addEventListener('click', (e) => {
+  const tagEl = e.target.closest('.tag.glossary');
+  if (tagEl) {
+    // 条件ボタンの中の ⓘ を押したときは、説明だけ開いて選択は切り替えない
+    if (tagEl.closest('label')) e.preventDefault();
+    openGlossary(tagEl.getAttribute('data-term'));
+  }
+});
+
+// ---------- レコメンドタブ ----------
+
+function renderCheckboxGroup(containerId, name, values, withGlossary) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = values.map((v) => {
+    const info = withGlossary && (FLAVOR_GLOSSARY[v] || OTHER_GLOSSARY[v])
+      ? ` <span class="tag glossary" data-term="${v}" style="padding:1px 6px;">ⓘ</span>` : '';
+    return `<label><input type="checkbox" name="${name}" value="${v}">${v}${info}</label>`;
+  }).join('');
+}
+
+const LOCAL_ONLY_LABEL = '静岡の地酒だけ';
+
+function initForm() {
+  renderCheckboxGroup('priceFields', 'price', PRICE_BANDS.map((b) => b.label));
+  renderCheckboxGroup('volumeFields', 'volume', VOLUME_BANDS.map((b) => b.label));
+  renderCheckboxGroup('categoryFields', 'category', CATEGORIES, true);
+  renderCheckboxGroup('flavorFields', 'flavor', FLAVOR_TAGS, true);
+  renderCheckboxGroup('servingStyleFields', 'servingStyle', SERVING_STYLE_TAGS);
+  renderCheckboxGroup('seasonFields', 'season', SEASONS, true);
+  renderCheckboxGroup('localFields', 'local', [LOCAL_ONLY_LABEL]);
+}
+
+function getCheckedValues(name) {
+  return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map((el) => el.value);
+}
+
+function priceLabelsToBandIds(labels) {
+  return PRICE_BANDS.filter((b) => labels.includes(b.label)).map((b) => b.id);
+}
+
+// スプレッドシート由来の文字列をHTMLに埋め込む前にエスケープする（XSS対策）。
+// 数値（price等）はエスケープ不要。
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// 例: 1,700円（720ml） ／ 純米吟醸 ／ 神沢川酒造場（静岡県） ／ 山田錦 ／ 精米歩合50% ／ 日本酒度+3 ／ 15度
+// 値がない項目は省く
+function metaLineHtml(p) {
+  const price = p.price === null || p.price === undefined ? '価格不明' : p.price.toLocaleString() + '円';
+  const origin = cardOriginText(p);
+  const parts = [price + (p.spec ? '（' + escapeHtml(p.spec) + '）' : '')];
+  if (origin) parts.push(escapeHtml(origin));
+  if (p.season && p.season !== '通年') parts.push(escapeHtml(p.season));
+  return `<div class="meta">${parts.join(' ／ ')}</div>`;
+}
+
+// 画像はアプリと同じ場所の img/ に置いたファイルを使う（外部サイトには接続しない）。
+// スプレッドシートの imageUrl 列には "img/xxxxxxxxxxxxxxxx.webp" の形式で入れる。読み込み失敗時は画像を消す。
+function hasThumb(p) {
+  return typeof p.imageUrl === 'string' && /^img\/[0-9a-f]{16}\.webp$/.test(p.imageUrl);
+}
+
+function thumbHtml(p) {
+  if (!hasThumb(p)) return '';
+  return `<img class="thumb" src="${p.imageUrl}" alt="" loading="lazy" onerror="var c=this.closest('.pcard');if(c)c.classList.add('noimg');this.remove()">`;
+}
+
+// 確証度が high 以外（未設定含む）なら警告する
+function confidenceCaution(p) {
+  const lowConfidence = p.attributeConfidence !== 'high' || p.highlightConfidence !== 'high';
+  return lowConfidence
+    ? `<div class="caution">⚠ 情報の確証度が低めです。商品コード <span class="code">${escapeHtml(p.code)}</span> で現物のラベルをご確認ください</div>`
+    : '';
+}
+
+// ---------- ツールごとに違う部分（日本酒） ----------
+
+function currentCriteria() {
+  const volumeLabels = getCheckedValues('volume');
+  return {
+    freeText: document.getElementById('recommendFreeText').value.trim(),
+    priceBandIds: priceLabelsToBandIds(getCheckedValues('price')),
+    volumeBandIds: VOLUME_BANDS.filter((b) => volumeLabels.includes(b.label)).map((b) => b.id),
+    categories: getCheckedValues('category'),
+    flavors: getCheckedValues('flavor'),
+    servingStyles: getCheckedValues('servingStyle'),
+    seasons: getCheckedValues('season'),
+    localOnly: getCheckedValues('local').length > 0,
+  };
+}
+
+function cardSpecText(p) { return p.spec || ''; }
+
+// 日本酒度は「+3」「-2」「±0」の形で見せる（数値でなければそのまま）
+function smvText(smv) {
+  if (smv === null || smv === undefined || smv === '') return '';
+  const n = Number(smv);
+  if (!Number.isFinite(n)) return String(smv);
+  return n > 0 ? '+' + n : n === 0 ? '±0' : String(n);
+}
+
+// 例: 純米吟醸 ／ 神沢川酒造場（静岡県） ／ 山田錦 ／ 精米歩合50% ／ 日本酒度+3 ／ 15度（値がない項目は省く）
+function cardOriginText(p) {
+  const parts = [];
+  if (p.categoryDetail || p.category) parts.push(p.categoryDetail || p.category);
+  if (p.brewery) parts.push(p.brewery + (p.prefecture ? '（' + p.prefecture + '）' : ''));
+  else if (p.prefecture) parts.push(p.prefecture);
+  if (p.rice) parts.push(p.rice);
+  if (typeof p.polish === 'number') parts.push('精米歩合' + p.polish + '%');
+  const smv = smvText(p.smv);
+  if (smv) parts.push('日本酒度' + smv);
+  if (typeof p.abv === 'number') parts.push(p.abv + '度');
+  return parts.join(' ／ ');
+}
+
+function cardTagsHtml(p) {
+  return (p.season && p.season !== '通年' ? glossaryTagHtml(p.season, 'season') : '')
+    + (p.flavors || []).map((f) => glossaryTagHtml(f)).join('')
+    + (p.servingStyles || []).map((s) => glossaryTagHtml(s, 'sv')).join('');
+}
+
+function cardHighlightText(p) { return p.highlight || ''; }
+function cardTitlePrefixHtml() { return ''; }
+function cardExtraClass() { return ''; }
+function cardReasonHtml() { return ''; }
+
+// 一覧タブ：検索欄の絞り込みと「かんたん絞り込み」（1つだけ選べる）
+function listTextFilter(products, q) { return products.filter((p) => matchesFreeText(p, q)); }
+const LIST_QUICK_VALUES = CATEGORIES;
+function listQuickMatch(p, value) { return p.category === value; }
+
+// ---------- 3ツール共通：商品カード ----------
+
+// ツールごとの部分（cardSpecText / cardOriginText / cardTagsHtml / cardHighlightText /
+// cardTitlePrefixHtml / cardExtraClass / cardReasonHtml）は「ツールごとに違う部分」で定義する。
+function productCardHtml(p, opts) {
+  const o = opts || {};
+  const price = p.price === null || p.price === undefined ? '価格不明' : p.price.toLocaleString() + '円';
+  const spec = cardSpecText(p);
+  const hlText = cardHighlightText(p);
+  const highlight = o.highlight && hlText
+    ? `<div class="highlight clamp" data-clamp>${escapeHtml(hlText)}</div><div class="clampHint" data-clamp>タップで全文 ▼</div>` : '';
+  const extraClass = cardExtraClass(p);
+  return `
+    <div class="card pcard${hasThumb(p) ? '' : ' noimg'}${extraClass ? ' ' + extraClass : ''}" data-code="${escapeHtml(p.code)}">
+      ${thumbHtml(p)}
+      <div>
+        <h3>${cardTitlePrefixHtml(p)}${escapeHtml(p.name)}</h3>
+        <div class="pcPrice">${price}${spec ? `<small>${escapeHtml(spec)}</small>` : ''}</div>
+        <div class="meta">${escapeHtml(cardOriginText(p))}</div>
+        ${o.badge || ''}
+        <div class="pcTags">${cardTagsHtml(p)}</div>
+      </div>
+      ${o.extra || ''}
+      ${highlight}
+      ${o.highlight ? confidenceCaution(p) : ''}
+      <div class="code">コード: ${escapeHtml(p.code)}</div>
+    </div>
+  `;
+}
+
+// 説明文は3行までに縮め、タップで全文を開閉する
+document.body.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-clamp]');
+  if (!el) return;
+  const card = el.closest('.pcard');
+  const text = card.querySelector('.highlight');
+  const hint = card.querySelector('.clampHint');
+  const open = text.classList.toggle('clamp') === false;
+  hint.textContent = open ? '閉じる ▲' : 'タップで全文 ▼';
+});
+
+// ---------- 3ツール共通：レコメンド（タップで即結果＋下の「結果を見る」ボタン） ----------
+
+function renderResultCard(entry) {
+  // フリーワードだけで検索した場合は一致度を計算する条件がなく、全件「0%」と出て誤解を招くため表示しない（2026-10修正）
+  let badge = '';
+  if (entry.totalCriteria > 0) {
+    badge = entry.score === 1
+      ? '<span class="match full">条件に全部一致</span>'
+      : `<span class="match">一致度 ${Math.round(entry.score * 100)}%</span>`;
+  }
+  return productCardHtml(entry.product, { badge, highlight: true, extra: cardReasonHtml(entry) });
+}
+
+let lastResults = { has: false, withCriteria: false, fullCount: 0, shown: 0 };
+
+// 一度に出す件数。条件や並び順を変えたら最初の件数に戻す（keepLimit は「もっと見る」のときだけ true）
+const RESULTS_PAGE = 20;
+let resultsLimit = RESULTS_PAGE;
+
+function runSearch(keepLimit) {
+  if (keepLimit !== true) resultsLimit = RESULTS_PAGE;
+  const criteria = currentCriteria();
+  const resultsEl = document.getElementById('results');
+  const bar = document.getElementById('resultsBar');
+  if (!hasAnyCriteria(criteria)) {
+    lastResults = { has: false, withCriteria: false, fullCount: 0, shown: 0 };
+    bar.classList.add('hidden');
+    resultsEl.innerHTML = '<p class="muted">条件をタップすると、ここに結果が出ます。</p>';
+    updateDock();
+    return;
+  }
+  const all = rankProducts(PRODUCTS, criteria, Infinity);
+  const withCriteria = all.length > 0 && all[0].totalCriteria > 0;
+  // 条件が1つも合わない商品（一致度0%）は出さない。フリーワードだけのときは全件が「一致」
+  const hits = withCriteria ? all.filter((e) => e.score > 0) : all;
+  const fullCount = withCriteria ? hits.filter((e) => e.score === 1).length : hits.length;
+  // 全件を並べ替えてから先頭 resultsLimit 件を出す（続きは「もっと見る」）
+  const ordered = orderHits(hits, document.getElementById('resultsSort').value);
+  const top = ordered.slice(0, resultsLimit);
+  const rest = ordered.length - top.length;
+  const partialCount = hits.length - fullCount;
+  lastResults = { has: true, withCriteria, fullCount, shown: hits.length };
+
+  const notes = [];
+  if (withCriteria && partialCount > 0) notes.push(`ほかに一部だけ合うもの ${partialCount}件`);
+  if (rest > 0) notes.push(`${top.length}件まで表示中（続きは下の「もっと見る」）`);
+  const countHtml = (withCriteria ? `▼ 条件に全部合う ${fullCount}件` : `▼ ${hits.length}件`)
+    + (notes.length ? `<small>${notes.join('／')}</small>` : '');
+  document.getElementById('resultsCount').innerHTML = countHtml;
+  bar.classList.remove('hidden');
+  resultsEl.innerHTML = top.length > 0
+    ? top.map(renderResultCard).join('')
+      + (rest > 0 ? `<button type="button" id="resultsMoreButton" class="secondary" style="width:100%;">もっと見る（残り${rest}件）</button>` : '')
+    : '<p class="muted">条件に合う商品が見つかりませんでした。条件を減らしてお試しください。</p>';
+  updateDock();
+}
+
+// 「もっと見る」：今の条件・並び順のまま、表示を20件ずつ増やす
+document.getElementById('results').addEventListener('click', (e) => {
+  if (!e.target.closest('#resultsMoreButton')) return;
+  resultsLimit += RESULTS_PAGE;
+  runSearch(true);
+});
+
+// 結果が画面に見えていない間だけ、下に「結果を見る」ボタンを出す
+let resultsVisible = false;
+function updateDock() {
+  const dock = document.getElementById('resultsDock');
+  const onRecommend = document.getElementById('tab-recommend').classList.contains('active');
+  if (!lastResults.has || resultsVisible || !onRecommend) { dock.classList.add('hidden'); return; }
+  let label;
+  if (!lastResults.withCriteria) label = `結果を見る ↓（${lastResults.fullCount}件）`;
+  else if (lastResults.fullCount > 0) label = `結果を見る ↓（全部合う ${lastResults.fullCount}件）`;
+  else label = `結果を見る ↓（一部だけ合う ${lastResults.shown}件）`;
+  document.getElementById('resultsDockButton').textContent = label;
+  dock.classList.remove('hidden');
+}
+
+if ('IntersectionObserver' in window) {
+  const seen = new Map();
+  const io = new IntersectionObserver((items) => {
+    items.forEach((it) => seen.set(it.target.id, it.isIntersecting));
+    resultsVisible = Array.from(seen.values()).some(Boolean);
+    updateDock();
+  });
+  io.observe(document.getElementById('resultsBar'));
+  io.observe(document.getElementById('results'));
+}
+
+document.getElementById('resultsDockButton').addEventListener('click', () => {
+  document.getElementById('resultsBar').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+document.getElementById('criteriaForm').addEventListener('change', runSearch);
+let freeTextTimer = null;
+document.getElementById('criteriaForm').addEventListener('input', (e) => {
+  if (e.target.type !== 'text' && e.target.type !== 'number') return;
+  clearTimeout(freeTextTimer);
+  freeTextTimer = setTimeout(runSearch, 300);
+});
+document.getElementById('criteriaForm').addEventListener('submit', (e) => e.preventDefault());
+document.getElementById('resultsSort').addEventListener('change', runSearch);
+
+document.getElementById('clearCriteriaButton').addEventListener('click', () => {
+  document.getElementById('criteriaForm').querySelectorAll('input[type="checkbox"]').forEach((el) => { el.checked = false; });
+  document.getElementById('criteriaForm').querySelectorAll('input[type="text"], input[type="number"]').forEach((el) => { el.value = ''; });
+  document.getElementById('resultsSort').value = 'score';
+  if (typeof updateRegionField === 'function') updateRegionField();
+  runSearch();
+});
+
+// ---------- 3ツール共通：一覧タブ（検索・かんたん絞り込み・並べ替え・件数） ----------
+
+let listQuick = '';
+
+function renderListQuickChips() {
+  document.getElementById('listQuickChips').innerHTML = ['', ...LIST_QUICK_VALUES].map((v) =>
+    `<button type="button" data-quick="${escapeHtml(v)}" aria-pressed="${v === listQuick}">${v ? escapeHtml(v) : 'すべて'}</button>`).join('');
+}
+
+document.getElementById('listQuickChips').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-quick]');
+  if (!btn) return;
+  listQuick = btn.getAttribute('data-quick');
+  renderListQuickChips();
+  renderListResults();
+});
+
+function renderListResults() {
+  const q = (document.getElementById('listSearch').value || '').trim();
+  const active = PRODUCTS.filter((p) => p.status !== 'discontinued');
+  const filtered = listTextFilter(active, q).filter((p) => !listQuick || listQuickMatch(p, listQuick));
+  const sorted = sortEntries(filtered.map((p) => ({ product: p })), document.getElementById('listSort').value);
+  document.getElementById('listCount').textContent = `${sorted.length}件`;
+  document.getElementById('listResults').innerHTML = sorted.length
+    ? sorted.map((e) => productCardHtml(e.product)).join('')
+    : '<p class="muted">該当する商品がありません。</p>';
+}
+
+document.getElementById('listResults').addEventListener('click', (e) => {
+  if (e.target.closest('.tag')) return; // タグクリックは用語集を優先
+  const card = e.target.closest('.pcard');
+  if (card) openDetail(card.getAttribute('data-code'));
+});
+
+document.getElementById('listSearch').addEventListener('input', renderListResults);
+document.getElementById('listSort').addEventListener('change', renderListResults);
+
+// ---------- 詳細オーバーレイ ----------
+
+function openDetail(code) {
+  const p = PRODUCTS.find((x) => x.code === code);
+  if (!p) return;
+  document.getElementById('detailContent').innerHTML = `
+    ${thumbHtml(p)}
+    <h2>${escapeHtml(p.name)}</h2>
+    ${metaLineHtml(p)}
+    <div>${(p.flavors || []).map((f) => glossaryTagHtml(f)).join('')}</div>
+    <div>${(p.servingStyles || []).map((s) => glossaryTagHtml(s)).join('')}</div>
+    ${p.highlight ? `<div class="highlight">${escapeHtml(p.highlight)}</div>` : ''}
+    ${p.status === 'discontinued' ? '<div class="caution">現在は取扱終了商品です</div>' : ''}
+    ${confidenceCaution(p)}
+    <div class="code" style="margin-top:8px;">商品コード: ${escapeHtml(p.code)}</div>
+  `;
+  document.getElementById('detailOverlay').classList.remove('hidden');
+}
+
+document.getElementById('detailCloseButton').addEventListener('click', () => {
+  document.getElementById('detailOverlay').classList.add('hidden');
+});
+
+// ---------- 管理タブ ----------
+
+let adminPasscodeValue = '';
+
+document.getElementById('adminUnlockButton').addEventListener('click', async () => {
+  const value = document.getElementById('adminPasscode').value;
+  if (!value) {
+    alert('パスコードを入力してください');
+    return;
+  }
+  const staffPasscode = localStorage.getItem(STAFF_PASSCODE_KEY) || '';
+  const result = await syncFromServer(staffPasscode, true, value);
+  if (!result.ok) {
+    alert('パスコードが正しくありません。');
+    return;
+  }
+  adminPasscodeValue = value;
+  document.getElementById('adminBody').style.display = 'block';
+});
+
+function populateAdminLists() {
+  const active = PRODUCTS; // サーバー側で既に取扱中のみに絞り込まれている
+  const discontinued = ADMIN_DISCONTINUED; // 管理パスコードで認証済みの場合のみ入っている
+
+  // 価格改定の対象一覧。同期で作り直しても、選んでいた商品はそのまま残す
+  const priceSelect = document.getElementById('admPriceTarget');
+  const selected = priceSelect.value;
+  priceSelect.innerHTML = active.map((p) => `<option value="${escapeHtml(p.code)}">${escapeHtml(p.name)}（${formatAdminPrice(p.price)}）</option>`).join('');
+  if (active.some((p) => p.code === selected)) priceSelect.value = selected;
+
+  document.getElementById('admActiveList').innerHTML = active.map((p) => `
+    <div class="adminListRow">
+      <span class="name">${escapeHtml(p.name)}</span>
+      <button type="button" class="secondary admDiscontinueBtn" data-code="${escapeHtml(p.code)}">取り扱い終了</button>
+    </div>
+  `).join('') || '<p class="muted">対象商品がありません</p>';
+
+  document.getElementById('admDiscontinuedList').innerHTML = discontinued.map((p) => `
+    <div class="adminListRow">
+      <span class="name">${escapeHtml(p.name)}</span>
+      <span class="btns">
+        <button type="button" class="secondary admReactivateBtn" data-code="${escapeHtml(p.code)}">再開する</button>
+        <button type="button" class="secondary admDeleteBtn" data-code="${escapeHtml(p.code)}">削除</button>
+      </span>
+    </div>
+  `).join('') || '<p class="muted">取り扱い終了中の商品はありません</p>';
+
+  document.querySelectorAll('.admDiscontinueBtn').forEach((btn) => {
+    btn.addEventListener('click', () => setStatus(btn.getAttribute('data-code'), 'discontinued'));
+  });
+  document.querySelectorAll('.admReactivateBtn').forEach((btn) => {
+    btn.addEventListener('click', () => setStatus(btn.getAttribute('data-code'), 'active'));
+  });
+  document.querySelectorAll('.admDeleteBtn').forEach((btn) => {
+    btn.addEventListener('click', () => askDelete(btn.getAttribute('data-code')));
+  });
+  document.getElementById('admDeleteConfirm').classList.add('hidden');
+}
+
+function showAdminMsg(text, ok) {
+  const el = document.getElementById('adminMsg');
+  el.innerHTML = `<div class="msg ${ok ? 'ok' : 'err'}">${text}</div>`;
+}
+
+async function callAppsScript(payload) {
+  if (!APPS_SCRIPT_URL) {
+    showAdminMsg('Apps ScriptのURLが未設定です。READMEを参照して設定してください。', false);
+    return false;
+  }
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ ...payload, passcode: adminPasscodeValue }),
+    });
+    const data = await res.json();
+    if (data.error === 'passcode_invalid') {
+      showAdminMsg('パスコードが正しくありません。', false);
+      return false;
+    }
+    if (data.error) {
+      showAdminMsg(ADMIN_ERROR_MESSAGES[data.error] || ('エラーが発生しました: ' + data.error), false);
+      return false;
+    }
+    const staffPasscode = localStorage.getItem(STAFF_PASSCODE_KEY) || '';
+    await syncFromServer(staffPasscode, true, adminPasscodeValue || null);
+    return true;
+  } catch (e) {
+    showAdminMsg('通信エラーが発生しました。通信環境をご確認ください。', false);
+    return false;
+  }
+}
+
+async function setStatus(code, status) {
+  const success = await callAppsScript({ action: 'setStatus', code, status });
+  if (success) showAdminMsg(status === 'discontinued' ? '取り扱い終了にしました' : '取り扱いを再開しました', true);
+}
+
+const ADMIN_ERROR_MESSAGES = {
+  duplicate_code: 'このJANコードの商品はすでに登録されています（取り扱い終了中の商品も含みます）。',
+  invalid_price: '価格は0以上の整数で入力してください。',
+  invalid_product: '商品名を入力してください。',
+  unknown_action: 'この操作を使うには、Apps Scriptの更新（再デプロイ）が必要です。',
+};
+
+function formatAdminPrice(price) {
+  return price === null || price === undefined ? '価格未設定' : `${Number(price).toLocaleString()}円`;
+}
+
+// 空欄は null（価格未設定）、0以上の整数でないものは undefined を返す
+function parsePriceInput(id) {
+  const raw = document.getElementById(id).value.trim();
+  if (raw === '') return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : undefined;
+}
+
+function textOrNull(id) {
+  return document.getElementById(id).value.trim() || null;
+}
+
+function initAdminForm() {
+  document.getElementById('admCategory').innerHTML = CATEGORIES.map((m) => `<option value="${m}">${m}</option>`).join('');
+  // 季節は「通年」を先頭（初期値）にする
+  document.getElementById('admSeason').innerHTML = ['通年', ...SEASONS.filter((s) => s !== '通年')]
+    .map((s) => `<option value="${s}">${s}</option>`).join('');
+  renderCheckboxGroup('admFlavorFields', 'admFlavor', FLAVOR_TAGS);
+  renderCheckboxGroup('admServingFields', 'admServingStyle', SERVING_STYLE_TAGS);
+}
+
+// 空欄や数値でない入力は null にする（「+3」「＋３」「-2」も数値として読む）
+function numberOrNull(id) {
+  const raw = document.getElementById(id).value.trim().normalize('NFKC').replace(/^\+/, '');
+  return raw === '' || !Number.isFinite(Number(raw)) ? null : Number(raw);
+}
+
+function adminToolFields() {
+  return {
+    category: document.getElementById('admCategory').value || null,
+    categoryDetail: textOrNull('admCategoryDetail'),
+    brewery: textOrNull('admBrewery'),
+    prefecture: textOrNull('admPrefecture'),
+    rice: textOrNull('admRice'),
+    polish: numberOrNull('admPolish'),
+    smv: numberOrNull('admSmv'),
+    abv: numberOrNull('admAbv'),
+    season: document.getElementById('admSeason').value || '通年',
+  };
+}
+
+document.getElementById('admAddButton').addEventListener('click', async () => {
+  const name = document.getElementById('admName').value.trim();
+  if (!name) { showAdminMsg('商品名を入力してください', false); return; }
+  const code = document.getElementById('admCode').value.replace(/\s/g, '');
+  if (code && !/^\d{8,14}$/.test(code)) { showAdminMsg('JANコードは8〜14桁の数字で入力してください（空欄でも追加できます）', false); return; }
+  const price = parsePriceInput('admPrice');
+  if (price === undefined) { showAdminMsg('価格は0以上の整数で入力してください', false); return; }
+  const product = {
+    // JANが分からない商品は、既存のJANと重ならない仮コードにする
+    code: code || 'SK-' + Date.now(),
+    name,
+    spec: textOrNull('admSpec'),
+    price,
+    ...adminToolFields(),
+    flavors: getCheckedValues('admFlavor'),
+    servingStyles: getCheckedValues('admServingStyle'),
+    highlight: textOrNull('admHighlight'),
+    highlightConfidence: 'high',
+    highlightSource: '管理画面から追加',
+    attributeConfidence: 'high',
+    attributeSource: '管理画面から追加',
+    status: 'active',
+  };
+  const success = await callAppsScript({ action: 'add', product });
+  if (success) {
+    showAdminMsg('「' + escapeHtml(name) + '」を追加しました', true);
+    const fieldset = document.getElementById('admAddFieldset');
+    fieldset.querySelectorAll('input[type="text"], input[type="number"], textarea').forEach((el) => { el.value = ''; });
+    fieldset.querySelectorAll('input[type="checkbox"]').forEach((el) => { el.checked = false; });
+    // 選択欄も先頭に戻す（ウイスキーは国に合わせて地方欄も作り直す）
+    fieldset.querySelectorAll('select').forEach((el) => { el.selectedIndex = 0; el.dispatchEvent(new Event('change')); });
+  }
+});
+
+document.getElementById('admPriceButton').addEventListener('click', async () => {
+  const code = document.getElementById('admPriceTarget').value;
+  const newPrice = parsePriceInput('admNewPrice');
+  if (!code || newPrice === null || newPrice === undefined) {
+    showAdminMsg('対象商品と新しい販売価格（0以上の整数）を指定してください', false);
+    return;
+  }
+  const product = PRODUCTS.find((p) => p.code === code);
+  const success = await callAppsScript({ action: 'update', code, patch: { price: newPrice } });
+  if (success) {
+    const label = product ? `「${escapeHtml(product.name)}」の価格を ${formatAdminPrice(product.price)} → ` : '価格を ';
+    showAdminMsg(`${label}${formatAdminPrice(newPrice)} に更新しました`, true);
+    document.getElementById('admNewPrice').value = '';
+  }
+});
+
+// 完全削除は取り扱い終了中の商品だけが対象。誤操作を防ぐため、確認欄で2回目のタップを求める
+let pendingDeleteCode = null;
+
+function askDelete(code) {
+  const product = ADMIN_DISCONTINUED.find((p) => p.code === code);
+  pendingDeleteCode = code;
+  document.getElementById('admDeleteConfirmName').textContent = product ? product.name : code;
+  const box = document.getElementById('admDeleteConfirm');
+  box.classList.remove('hidden');
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+document.getElementById('admDeleteCancelButton').addEventListener('click', () => {
+  pendingDeleteCode = null;
+  document.getElementById('admDeleteConfirm').classList.add('hidden');
+});
+
+document.getElementById('admDeleteConfirmButton').addEventListener('click', async () => {
+  const code = pendingDeleteCode;
+  if (!code) return;
+  pendingDeleteCode = null;
+  document.getElementById('admDeleteConfirm').classList.add('hidden');
+  const success = await callAppsScript({ action: 'delete', code });
+  if (success) showAdminMsg('完全に削除しました', true);
+});
+
+// ---------- 学ぶタブ ----------
+
+// 基礎知識（1項目＝用語・説明・接客での一言。比較表がある項目のみ table を持つ）
+const LEARN_SECTIONS = [
+  {
+    title: '種類・表示',
+    items: [
+      {
+        term: '特定名称酒の8種類',
+        body: '原料や米の磨き具合（精米歩合）などの決まりを満たした日本酒は、「純米吟醸」「本醸造」などの名前（特定名称）を名乗れます。全部で8種類あり、大きく分けると、米・米麹だけで造る「純米系」と、少量の醸造アルコールを加える「本醸造系（アル添）」の2つです。醸造アルコールの量は、使う白米の重さの10％以下と決められています。',
+        table: {
+          head: ['名称', '原料', '精米歩合'],
+          rows: [
+            ['純米大吟醸', '米・米麹', '50％以下'],
+            ['純米吟醸', '米・米麹', '60％以下'],
+            ['特別純米', '米・米麹', '60％以下、または特別な造り方'],
+            ['純米', '米・米麹', '決まりなし'],
+            ['大吟醸', '米・米麹・醸造アルコール', '50％以下'],
+            ['吟醸', '米・米麹・醸造アルコール', '60％以下'],
+            ['特別本醸造', '米・米麹・醸造アルコール', '60％以下、または特別な造り方'],
+            ['本醸造', '米・米麹・醸造アルコール', '70％以下'],
+          ],
+        },
+        talk: '「純米」とつくものはお米だけで造ったお酒、「吟醸」とつくものはお米をよく磨いた香りの良いお酒です。',
+      },
+      {
+        term: '精米歩合',
+        body: '玄米を外側から削り、残った部分の割合を表す数字です。精米歩合60％なら、外側の40％を削って、残りの60％を使っているという意味。米の外側にはたんぱく質や脂質が多く、雑味のもとになるため、たくさん削るほど（数字が小さいほど）すっきりときれいな味わいになりやすくなります。そのぶん米をたくさん使うので、価格は上がります。',
+        talk: '数字が小さいほどお米をたくさん磨いていて、すっきりきれいな味わいになります。',
+      },
+      {
+        term: '醸造アルコール',
+        body: 'サトウキビなどを原料に、発酵・蒸留して造った純度の高いアルコールです。しぼる前のもろみに少量加えると、香りの成分がお酒に移りやすくなり、後味もすっきり軽くなります。吟醸酒や本醸造酒では、量をふやすためではなく、香りと味を整えるために使われています。',
+        talk: '醸造アルコールは香りを引き立てて後味を軽くするために、少しだけ加えられています。',
+      },
+      {
+        term: '日本酒度と酸度',
+        body: '日本酒度は、お酒に含まれる糖分などの量を表す目安です。プラスの数字が大きいほど糖分が少なく「辛口」、マイナスになるほど糖分が多く「甘口」とされます。ただし、甘い・辛いの感じ方は酸度（酸の量）や香りでも変わります。酸度が高いと辛く濃く感じ、低いと甘く淡く感じやすくなります。数字はあくまで目安としてご案内ください。',
+        table: {
+          head: ['数値', '傾向'],
+          rows: [
+            ['日本酒度がプラス', '辛口寄り（糖分が少ない）'],
+            ['日本酒度がマイナス', '甘口寄り（糖分が多い）'],
+            ['酸度が高い', '辛く、濃く感じやすい'],
+            ['酸度が低い', '甘く、淡く感じやすい'],
+          ],
+        },
+        talk: '日本酒度がプラスだと辛口寄りですが、香りや酸でも印象が変わるので、目安としてご覧ください。',
+      },
+    ],
+  },
+  {
+    title: '造り・しぼり',
+    items: [
+      {
+        term: '生酒・生貯蔵酒・生詰め（火入れの違い）',
+        body: '日本酒はふつう、品質を安定させるために「火入れ」（60〜65℃ほどの加熱殺菌）を、貯蔵の前と瓶詰めの前の2回行います。この火入れをどこで行うかで呼び方が変わります。一度も火入れをしない「生酒」は、しぼりたてのフレッシュな風味が魅力ですが、味が変わりやすいので冷蔵が必要です。',
+        table: {
+          head: ['呼び方', '貯蔵前の火入れ', '瓶詰め前の火入れ'],
+          rows: [
+            ['ふつうの日本酒', 'する', 'する'],
+            ['生酒', 'しない', 'しない'],
+            ['生貯蔵酒', 'しない', 'する'],
+            ['生詰め（ひやおろし等）', 'する', 'しない'],
+          ],
+        },
+        talk: '生酒は一度も加熱していないフレッシュなお酒なので、お持ち帰り後は冷蔵庫で保管してください。',
+      },
+      {
+        term: '原酒・無濾過',
+        body: '原酒は、しぼったあとに水を加えて度数を調整していないお酒です。ふつうの日本酒は水を加えて15〜16度前後にしますが、原酒は17〜19度前後と高めのものが多く、味わいも濃厚です。無濾過は、しぼったあとに活性炭などを使った濾過をしていないお酒で、色や香り、旨みがそのまま残ります。「無濾過生原酒」は、濾過も火入れも加水もしていない、しぼったままに近いお酒です。',
+        talk: '原酒は水で薄めていないので味が濃く、度数も少し高めです。氷を入れて飲むのもおすすめです。',
+      },
+      {
+        term: '生酛（きもと）・山廃（やまはい）',
+        body: 'お酒のもとになる「酒母（しゅぼ）」を、蔵にいる自然の乳酸菌の力を借りて、時間をかけて育てる昔ながらの造り方です。米をすりつぶす重労働「山卸し（やまおろし）」を行うのが生酛、その作業を省いた（廃止した）のが山廃です。どちらも、酸と旨みがしっかりした飲みごたえのあるお酒になりやすく、燗にするとよさが出るものが多いです。',
+        talk: '山廃や生酛は旨みと酸がしっかりしていて、お燗にするとおいしいタイプです。',
+      },
+      {
+        term: 'にごり酒・おりがらみ・どぶろく',
+        body: 'にごり酒は、もろみを目の粗い布などでこして、米の成分（おり）をあえて残したお酒です。うっすら濁る程度のものは「おりがらみ」「うすにごり」と呼ばれます。瓶の中で発酵が続く「活性にごり」は炭酸ガスを含むため、開けるときに吹き出さないよう注意が必要です。一方、どぶろくは、もろみをまったくこさないお酒で、法律上は「清酒」ではなく「その他の醸造酒」に分類されます。',
+        talk: '活性にごりは開けるときに吹き出すことがあるので、よく冷やして、振らずに少しずつ栓をゆるめてください。',
+      },
+      {
+        term: '袋吊り・雫酒・斗瓶取り',
+        body: 'もろみを布の袋に入れて吊るし、圧力をかけずに自然にしたたり落ちる雫だけを集める、手間のかかるしぼり方です（袋吊り・雫酒）。その雫を「斗瓶（とびん）」という18リットルのガラス瓶に取り分けたものが「斗瓶取り（斗瓶囲い）」。雑味が少なく、きれいで繊細な味わいになり、鑑評会に出すお酒などに使われる方法です。少ししか取れないため高価になります。',
+        talk: '機械でしぼらず、自然に落ちる雫だけを集めた贅沢なお酒です。贈り物にも喜ばれます。',
+      },
+    ],
+  },
+  {
+    title: '季節のお酒',
+    items: [
+      {
+        term: '季節限定の日本酒（1年の流れ）',
+        body: '日本酒造りは、秋に収穫した米で冬に仕込むのが基本です。そのため、季節ごとに違った表情のお酒が出回ります。季節限定のお酒は、その時期にしか入らないものが多いので、売場にある分だけのご案内になります。',
+        table: {
+          head: ['時期', '呼び方', '特徴'],
+          rows: [
+            ['冬〜春', '新酒・しぼりたて・初しぼり', 'できたてでフレッシュ。はつらつとした味わい'],
+            ['夏', '夏酒', '冷やして爽やかに飲める、軽快なタイプが多い'],
+            ['秋', 'ひやおろし・秋あがり', '夏を越して熟成し、まろやかで旨みがのっている'],
+          ],
+        },
+        talk: '今の時期だけのお酒です。同じ銘柄でも、季節によって味わいが変わるのが日本酒の楽しみです。',
+      },
+      ...glossaryItems(SEASON_GLOSSARY),
+    ],
+  },
+  {
+    title: '飲み方・保存',
+    items: [
+      {
+        term: '温度の呼び名（冷酒・冷や・燗）',
+        body: '日本酒は、冷やしても温めても楽しめるお酒です。温度ごとに呼び名があります。「冷や」は本来、冷蔵庫で冷やしたものではなく常温のことなので、ご案内のときは気をつけましょう。香りの華やかな吟醸系は冷やして、旨みのしっかりした純米酒や本醸造はお燗でも、というのが基本の目安です。',
+        table: {
+          head: ['呼び名', '温度の目安'],
+          rows: [
+            ['雪冷え', '5℃'],
+            ['花冷え', '10℃'],
+            ['涼冷え', '15℃'],
+            ['冷や（常温）', '20〜25℃'],
+            ['日向燗', '30℃'],
+            ['人肌燗', '35℃'],
+            ['ぬる燗', '40℃'],
+            ['上燗', '45℃'],
+            ['熱燗', '50℃'],
+            ['飛び切り燗', '55℃以上'],
+          ],
+        },
+        talk: '香りを楽しむお酒は冷やして、旨みのしっかりしたお酒はぬるめのお燗もおすすめです。',
+      },
+      {
+        term: '保存のしかた',
+        body: '日本酒は光と高い温度が苦手です。直射日光や蛍光灯の光を避け、涼しく暗い場所に、瓶を立てて置きます。生酒や「要冷蔵」と書かれたお酒は、必ず冷蔵庫へ。開けたあとは、栓をしっかり閉めて冷蔵庫に入れ、なるべく早めに飲むと、おいしい状態で楽しめます。',
+        talk: '生酒は冷蔵庫で、それ以外も涼しく暗いところで、立てて保管してください。',
+      },
+    ],
+  },
+  {
+    title: '酒米・静岡の酒',
+    items: [
+      {
+        term: '酒米（酒造好適米）',
+        body: '日本酒造りに向いた米を「酒米（酒造好適米）」と呼びます。食べる米より粒が大きく、中心に「心白（しんぱく）」という白く濁った部分があるのが特徴です。ラベルに米の名前が書かれているお酒は、その米らしさを味わってほしいという蔵の考えの表れです。',
+        table: {
+          head: ['酒米', '主な産地・特徴'],
+          rows: [
+            ['山田錦', '兵庫県が主産地。「酒米の王様」と呼ばれ、吟醸酒に多く使われる'],
+            ['五百万石', '新潟県など。すっきりと軽やかなお酒になりやすい'],
+            ['雄町', '岡山県が主産地。古くからある品種で、ふくよかで旨みのあるお酒になりやすい'],
+            ['美山錦', '長野県など。軽快ですっきりしたお酒になりやすい'],
+            ['誉富士', '静岡県が山田錦をもとに開発した、静岡県だけで栽培される酒米'],
+          ],
+        },
+        talk: 'こちらはラベルに書かれているお米だけで造られています。お米の違いで飲み比べるのも楽しいですよ。',
+      },
+      {
+        term: '静岡の地酒と静岡酵母',
+        body: '静岡県は、県が開発した「静岡酵母」を使った吟醸造りで知られ、「吟醸王国」とも呼ばれます。静岡酵母のお酒は、香りが穏やかで上品、味わいはきれいで軽やか、飲み飽きしないのが持ち味で、魚料理など食事と一緒に楽しみやすいタイプが多いです。県オリジナルの酒米「誉富士」を使ったお酒も増えています。',
+        talk: '静岡のお酒は香りが穏やかできれいな味わいのものが多く、お食事と一緒に楽しめます。',
+      },
+    ],
+  },
+  { title: '種類', items: glossaryItems(CATEGORY_GLOSSARY) },
+  { title: '味わいタグ', items: glossaryItems(FLAVOR_GLOSSARY) },
+];
+
+function glossaryItems(glossary) {
+  return Object.entries(glossary).map(([term, body]) => ({ term, body }));
+}
+
+function normalizeLearnText(str) {
+  return String(str).normalize('NFKC').toLowerCase();
+}
+
+function learnItemHtml(item) {
+  const table = item.table
+    ? `<div class="learnTableWrap"><table class="learnTable"><tr>${item.table.head.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr>${item.table.rows.map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</table></div>`
+    : '';
+  const talk = item.talk ? `<div class="learnTalk"><b>接客での一言</b><br>「${escapeHtml(item.talk)}」</div>` : '';
+  return `<details class="learnItem"><summary>${escapeHtml(item.term)}</summary><div class="learnBody"><p>${escapeHtml(item.body)}</p>${table}${talk}</div></details>`;
+}
+
+function renderLearn() {
+  document.getElementById('learnToc').innerHTML = LEARN_SECTIONS.map((s, i) =>
+    `<button type="button" class="secondary" data-learn-jump="${i}">${escapeHtml(s.title)}</button>`).join('');
+  document.getElementById('learnContent').innerHTML = LEARN_SECTIONS.map((s, i) =>
+    `<div class="learnSection" id="learnSection${i}"><h2>${escapeHtml(s.title)}</h2>${s.items.map(learnItemHtml).join('')}</div>`).join('')
+    + '<p id="learnEmpty" class="muted hidden">該当する用語がありません。</p>';
+
+  // 検索用の文字列は用語・説明・一言・表の中身をまとめて持たせる
+  const items = LEARN_SECTIONS.flatMap((s) => s.items);
+  document.querySelectorAll('#learnContent .learnItem').forEach((el, i) => {
+    const item = items[i];
+    const tableText = item.table ? item.table.head.concat(...item.table.rows).join(' ') : '';
+    el.dataset.search = normalizeLearnText([item.term, item.body, item.talk || '', tableText].join(' '));
+  });
+}
+
+function filterLearn() {
+  const q = normalizeLearnText(document.getElementById('learnSearch').value.trim());
+  let anyHit = false;
+  document.querySelectorAll('#learnContent .learnSection').forEach((sec) => {
+    let secHit = false;
+    sec.querySelectorAll('.learnItem').forEach((el) => {
+      const hit = !q || el.dataset.search.includes(q);
+      el.classList.toggle('hidden', !hit);
+      el.open = Boolean(q) && hit;
+      if (hit) secHit = true;
+    });
+    sec.classList.toggle('hidden', !secHit);
+    if (secHit) anyHit = true;
+  });
+  document.getElementById('learnEmpty').classList.toggle('hidden', anyHit);
+  document.getElementById('learnToc').classList.toggle('hidden', Boolean(q));
+}
+
+document.getElementById('learnSearch').addEventListener('input', filterLearn);
+
+document.getElementById('learnToc').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-learn-jump]');
+  if (btn) document.getElementById('learnSection' + btn.getAttribute('data-learn-jump')).scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// ---------- タブ切り替え ----------
+
+document.querySelectorAll('.tabBtn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabBtn').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('.tabPanel').forEach((p) => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.getAttribute('data-tab')).classList.add('active');
+    updateDock();
+  });
+});
+
+// ---------- アプリ本体の初期化（認証成功後に実行） ----------
+
+function startApp() {
+  initForm();
+  renderListQuickChips();
+  renderListResults();
+  runSearch();
+  renderLearn();
+  updateSyncStatus();
+  initAdminForm();
+  populateAdminLists();
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+initAuth();
+</script>
+</body>
+</html>
